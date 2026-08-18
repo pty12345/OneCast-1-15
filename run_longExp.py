@@ -67,6 +67,12 @@ parser.add_argument('--VQ_epoch', type=int, default=1, help='epoch of VQVAE')
 
 ### TokenTime
 parser.add_argument('--cfg_path', type=str, default='configs.yaml', help='config')
+parser.add_argument(
+    '--text_tokenizer_root',
+    type=str,
+    default=os.environ.get('ONECAST_GPT2_ROOT', './pretrained/GPT2'),
+    help='GPT-2 tokenizer/model directory used by non-LLM backbones',
+)
 parser.add_argument('--infer_step', type=int, default=8)
 
 # number of layers of classifier
@@ -89,6 +95,7 @@ parser.add_argument('--do_predict', action='store_true', help='whether to predic
 
 ### optimization
 parser.add_argument('--num_workers', type=int, default=0, help='data loader num workers')
+parser.add_argument('--no_train_shuffle', action='store_true', help='disable training DataLoader shuffle')
 parser.add_argument('--itr', type=int, default=2, help='experiments times')
 parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
 parser.add_argument('--batch_size', type=int, default=128, help='batch size of train input data')
@@ -104,7 +111,26 @@ parser.add_argument('--unify_lr', type=float, default=0.0001, help='unify learni
 
 ### adaptive
 parser.add_argument('--load_unify', type=int, default=0, help='fine-tune based on unify model')
+parser.add_argument(
+    '--load_unify_setting',
+    type=str,
+    default=None,
+    help='unified predictor checkpoint setting used to initialize adaptive training',
+)
 parser.add_argument('--adaptive_lr', type=float, default=0.0001, help='adaptive learning rate')
+parser.add_argument(
+    '--few_shot_ratio',
+    type=float,
+    default=1.0,
+    help='fraction of target-domain training windows used for adaptive training',
+)
+parser.add_argument(
+    '--few_shot_strategy',
+    type=str,
+    default='prefix',
+    choices=['prefix'],
+    help='target-domain window selection strategy for few-shot adaptation',
+)
 
 ### GPU
 parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
@@ -141,6 +167,8 @@ if args.cross_dataset is not None:
         args.cross_dataset = [x.strip() for x in args.cross_dataset.strip('\"').split(',')]
     elif args.dataset == 'Cross_large':
         args.cross_dataset = 'ETTh2,ETTm2,weather,traffic,CzeLan'
+        args.cross_dataset = [x.strip() for x in args.cross_dataset.strip('\"').split(',')]
+    else:
         args.cross_dataset = [x.strip() for x in args.cross_dataset.strip('\"').split(',')]
 
 if args.vqvae_path is None:

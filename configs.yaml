@@ -1,9 +1,9 @@
 model: 
   gpt2: 
-    root_dir: "/data/tingyue/LM-Base-Model/GPT2"
+    root_dir: ${oc.env:ONECAST_GPT2_ROOT,./pretrained/GPT2}
     model_dim: 768
   qwen: 
-    root_dir: "/data/tingyue/LM-Base-Model/Qwen2.5-0.5B-Instruct"
+    root_dir: ${oc.env:ONECAST_QWEN_ROOT,./pretrained/Qwen2.5-0.5B-Instruct}
     model_dim: 896
 training:
   noise_type: "mask"

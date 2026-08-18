@@ -18,6 +18,7 @@ from utils.tools import CustomCrossEntropyLoss
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, Subset
 
 from pprint import pprint
 from torch import optim
@@ -75,12 +76,17 @@ pretrain_map = {
     "Cross_CzeLan": ["CzeLan"],
 }
 
+
+def unwrap_module(module):
+    return module.module if hasattr(module, 'module') else module
+
+
 class Exp_Main(Exp_Basic):
     def __init__(self, args):
         super(Exp_Main, self).__init__(args)
         
         self.extend_config = OmegaConf.load(self.args.cfg_path)
-        self.mask_id = self.model.module.ts_tokenizer_len
+        self.mask_id = unwrap_module(self.model).ts_tokenizer_len
 
         self.epsilon = 1e-5
         # self.saved_metric = self.args.saved_metric
@@ -150,8 +156,9 @@ class Exp_Main(Exp_Basic):
         # input_tokens = self.vq_model.get_code(batch_x) + self.model.text_tokenizer_len
         # output_tokens = self.vq_model.get_code(batch_y) + self.model.text_tokenizer_len
 
-        output_tokens = self.vq_model.module.get_code(batch_y, dataname=dataname)
-        input_tokens = self.vq_model.module.get_code(batch_x, dataname=dataname)
+        vq_model = unwrap_module(self.vq_model)
+        output_tokens = vq_model.get_code(batch_y, dataname=dataname)
+        input_tokens = vq_model.get_code(batch_x, dataname=dataname)
 
         # print('input_tokens: ', input_tokens.shape, output_tokens.shape)
         # exit(0)
@@ -197,14 +204,15 @@ class Exp_Main(Exp_Basic):
     def decode_ts(self, output_ids, B, look_back=None, dataname=None):
         # output_ids: [B_C, num*num_t]
         B, n_nt = output_ids.shape
-        output_ids = torch.reshape(output_ids, (-1, self.vq_model.module.num_t))
+        vq_model = unwrap_module(self.vq_model)
+        output_ids = torch.reshape(output_ids, (-1, vq_model.num_t))
         
-        decode_ts = self.vq_model.module.decode_ids(output_ids, dataname=dataname).squeeze() # [B_C_num_t, token_len]
+        decode_ts = vq_model.decode_ids(output_ids, dataname=dataname).squeeze() # [B_C_num_t, token_len]
         decode_ts = torch.reshape(decode_ts, (B, -1, decode_ts.shape[-1]))
 
         if 'decompose' in self.args.VQ_type:
             with torch.no_grad():
-                pred_season = self.vq_model.module.pred_season(look_back, dataname=dataname)
+                pred_season = vq_model.pred_season(look_back, dataname=dataname)
 
                 decode_ts = decode_ts + pred_season
 
@@ -212,7 +220,7 @@ class Exp_Main(Exp_Basic):
             raise ValueError(f'VQ type {self.args.VQ_type} not supported!')
         
         # denormalize
-        decode_ts = self.vq_model.module.de_norm(decode_ts, dataname=dataname)
+        decode_ts = vq_model.de_norm(decode_ts, dataname=dataname)
         return decode_ts
 
     def vali(self, vali_loader_dict, criterion, mask_schedule=None, mode='e2e'):
@@ -436,9 +444,12 @@ class Exp_Main(Exp_Basic):
 
         if self.args.load_unify == 1:
             unify_root = save_root.replace("adaptive", "unify")
-            self.model.load_state_dict(torch.load(os.path.join(unify_root, setting, 'checkpoint.pth')))
+            unify_setting = getattr(self.args, 'load_unify_setting', None) or setting
+            self.model.load_state_dict(
+                torch.load(os.path.join(unify_root, unify_setting, 'checkpoint.pth'))
+            )
 
-        self.model.module.set_state('adaptive')
+        unwrap_module(self.model).set_state('adaptive')
         
         train_data_dict, train_loader_dict = self._get_data(flag='train')
         vali_data_dict, vali_loader_dict = self._get_data(flag='val')
@@ -447,6 +458,10 @@ class Exp_Main(Exp_Basic):
         train_loader_dict = {self.args.adaptive_dataset: train_loader_dict[self.args.adaptive_dataset]}
         vali_loader_dict = {self.args.adaptive_dataset: vali_loader_dict[self.args.adaptive_dataset]}
         test_loader_dict = {self.args.adaptive_dataset: test_loader_dict[self.args.adaptive_dataset]}
+
+        train_loader_dict[self.args.adaptive_dataset] = self._build_few_shot_loader(
+            train_loader_dict[self.args.adaptive_dataset]
+        )
 
 
 
@@ -579,6 +594,34 @@ class Exp_Main(Exp_Basic):
 
         return self.model
 
+    def _build_few_shot_loader(self, train_loader):
+        ratio = float(getattr(self.args, 'few_shot_ratio', 1.0))
+        if ratio == 1.0:
+            return train_loader
+        if ratio <= 0.0 or ratio > 1.0:
+            raise ValueError(f"few_shot_ratio must be in (0, 1], got {ratio}")
+
+        strategy = getattr(self.args, 'few_shot_strategy', 'prefix')
+        if strategy != 'prefix':
+            raise ValueError(f"Unsupported few-shot strategy: {strategy}")
+
+        dataset = train_loader.dataset
+        total = len(dataset)
+        keep = max(1, int(np.ceil(total * ratio)))
+        subset = Subset(dataset, range(keep))
+        batch_size = min(train_loader.batch_size or self.args.batch_size, keep)
+        print(
+            f"Few-shot adaptive training uses the first {keep}/{total} windows "
+            f"({ratio:.4f}) from {self.args.adaptive_dataset}."
+        )
+        return DataLoader(
+            subset,
+            batch_size=batch_size,
+            shuffle=not getattr(self.args, 'no_train_shuffle', False),
+            num_workers=self.args.num_workers,
+            drop_last=False,
+        )
+
     def test_func(self, test_loader, folder_path, object='test', dataname=None):
         self.model.eval()
         
@@ -697,7 +740,7 @@ class Exp_Main(Exp_Basic):
         
         # output_tokens, gt_tokens = torch.zeros(10), torch.ones(10)
         from utils.tools import draw_similarity, draw_confusion_matrix
-        codebook = self.vq_model.module.get_codebook().detach().cpu().numpy()
+        codebook = unwrap_module(self.vq_model).get_codebook().detach().cpu().numpy()
         draw_similarity(codebook, label_name=[str(i) for i in range(codebook.shape[1])], pdf_save_path=os.path.join(save_root, setting, 'codebook_similarity.pdf'))
         # exit(0)
 
@@ -845,4 +888,3 @@ class Exp_Main(Exp_Basic):
 
         np.save(folder_path + 'ground_truth.npy',ground_truth)
         return
-

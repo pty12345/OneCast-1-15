@@ -45,7 +45,7 @@ def data_provider(args, flag):
         batch_size = args.infer_batch_size if flag == 'test' else 4
         freq = args.freq
     else:
-        shuffle_flag = True
+        shuffle_flag = not getattr(args, 'no_train_shuffle', False)
         drop_last = True
         batch_size = args.batch_size
         freq = args.freq

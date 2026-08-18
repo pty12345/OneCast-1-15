@@ -29,7 +29,7 @@ class Model(nn.Module):
 			model_config = llm_config.model[configs.backbone]
 			model_root = model_config['root_dir']
 		else: # Using GPT2's Tokenizer
-			model_root = "/data/tingyue/LM-Base-Model/GPT2"
+			model_root = configs.text_tokenizer_root
 		
 		backbone_cfgs = {
 			'model_root': model_root,

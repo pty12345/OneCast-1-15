@@ -79,8 +79,6 @@ parser.add_argument('--enable_high_freq_token', action='store_true', help='Enabl
 
 args = parser.parse_args()
 
-# Train_data,Test_data = load_ETT(Path="/data/tinyy/vqvae1/dataset/ETT-small",folder=args.data)
-
 args.dataset = args.data_path.split('.')[0]
 
 if args.cross_dataset is not None:

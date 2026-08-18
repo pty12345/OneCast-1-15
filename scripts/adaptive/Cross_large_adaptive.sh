@@ -1,26 +1,18 @@
-if [ ! -d "./logs" ]; then
-    mkdir ./logs
-fi
+#!/usr/bin/env bash
+set -euo pipefail
 
-if [ ! -d "./logs/adaptive" ]; then
-    mkdir ./logs/adaptive
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+GPU_IDS="${GPU_IDS:-${CUDA_VISIBLE_DEVICES:-0}}"
+root_path_name="${ONECAST_DATA_ROOT:-${ROOT_DIR}/dataset}"
 
-if [ ! -d "./logs/adaptive/Cross_large" ]; then
-    mkdir ./logs/adaptive/Cross_large
-fi
+export CUDA_VISIBLE_DEVICES="${GPU_IDS}"
+cd "${ROOT_DIR}"
+mkdir -p logs/adaptive/Cross_large
 
 model_name=TokenTime
 
-# activate your virtual env
-source /data/tingyue/anaconda3/bin/activate DD-Time
-
-# export CUDA_VISIBLE_DEVICES="2"
-
-export CUDA_VISIBLE_DEVICES="1,2"
-
-
-root_path_name=./dataset
 model_id_name=Cross_large
 data_name=Cross_large
 
@@ -54,7 +46,7 @@ elect_rate=0
 for adaptive_dataset in 'ETTh2' 'ETTm2' 'weather' 'traffic' 'CzeLan'; do   
     for pred_len in 24 48 96 192 # 36 48 60 #  720 # 192      # 336 720
     do
-        python -u run_longExp.py \
+        "${PYTHON_BIN}" -u run_longExp.py \
         --random_seed $random_seed \
         --use_multi_gpu \
         --cross_dataset "ETTh2,ETTm2,electricity,weather,traffic,CzeLan" \
@@ -62,7 +54,7 @@ for adaptive_dataset in 'ETTh2' 'ETTm2' 'weather' 'traffic' 'CzeLan'; do
         --is_training 1 \
         --backbone $backbone \
         --backbone_dim $backbone_dim \
-        --root_path $root_path_name \
+        --root_path "$root_path_name" \
         --model_id $model_id_name'_'$seq_len'_'$pred_len \
         --model $model_name \
         --data $data_name \

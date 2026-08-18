@@ -26,12 +26,12 @@ class Season_predictor(nn.Module):
 		# print(frequencies)
 		# exit(0)
   
-		# Basis frequencies, shape [1, 1, 432]
+		# Fixed dictionary with 219 frequency components.
 		frequencies = get_frequencies()
 
 		self.shape_num = frequencies.shape[-1] # 
-		# self.register_buffer('frequencies', frequencies)
-		self.frequencies = nn.Parameter(frequencies, requires_grad=True)
+		self.register_buffer('frequencies', frequencies)
+		# self.frequencies = nn.Parameter(frequencies, requires_grad=True)
 
 		self.temp = nn.Parameter(torch.tensor([200 / self.shape_num], requires_grad=True))
 

@@ -1,20 +1,16 @@
-if [ ! -d "./logs" ]; then
-    mkdir ./logs
-fi
+#!/usr/bin/env bash
+set -euo pipefail
 
-if [ ! -d "./logs/Tokenizer" ]; then
-    mkdir ./logs/Tokenizer
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOKENIZER_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ROOT_DIR="$(cd "${TOKENIZER_DIR}/.." && pwd)"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+GPU_IDS="${GPU_IDS:-${CUDA_VISIBLE_DEVICES:-0}}"
+root_path_name="${ONECAST_DATA_ROOT:-${ROOT_DIR}/dataset}"
 
-if [ ! -d "./logs/Tokenizer/Cross_Wike2000" ]; then
-    mkdir ./logs/Tokenizer/Cross_Wike2000
-fi
-
-export CUDA_VISIBLE_DEVICES="5"
-
-source /data/tingyue/anaconda3/bin/activate DD-Time
-
-root_path_name=../../TFB_data/forecasting
+export CUDA_VISIBLE_DEVICES="${GPU_IDS}"
+cd "${TOKENIZER_DIR}"
+mkdir -p logs/Tokenizer/Cross_Wike2000
 model_id_name=Cross_Wike2000
 data_name=TFB
 
@@ -33,7 +29,7 @@ num_epoch=25
 lr_decay_rate=0.98
 
 for pred_len in 24 36 48 60; do
-    python -u main.py \
+    "${PYTHON_BIN}" -u main.py \
     --is_training 1 \
     --cross_dataset "Wike2000" \
     --seq_len $seq_len \
@@ -45,7 +41,7 @@ for pred_len in 24 36 48 60; do
     --vq_model $vq_model \
     --train_batch_size 32 \
     --test_batch_size 32 \
-    --root_path $root_path_name \
+    --root_path "$root_path_name" \
     --data $data_name \
     --wave_length $wave_length \
     --wave_stride $wave_stride \
