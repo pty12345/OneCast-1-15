@@ -46,7 +46,37 @@ bash TSTokenizer/scripts/Cross_Wike2000.sh
 bash TSTokenizer/scripts/Cross_FRED_Covid_NYSE.sh
 ```
 
-### Train Unify Model
+The tokenizer scripts use seed 2024. Train each tokenizer group once for each
+forecast horizon; the three main-table predictor runs below reuse those same
+group checkpoints. Each tokenizer checkpoint directory must contain `model.pkl`
+and `weight.pkl`.
+
+### Reproduce Main-Table Predictor Runs
+
+Run the large and small cross-domain predictors once under each of seeds
+2023, 2024, and 2025. The runner keeps the pretrained tokenizers fixed and
+gives each predictor run a distinct model ID, log, and checkpoint path:
+
+```bash
+python3 scripts/unify/run_predictor_seeds.py --dry-run
+python3 scripts/unify/run_predictor_seeds.py \
+  --setups large small \
+  --seeds 2023 2024 2025 \
+  --gpu 0
+```
+
+By default, it reads grouped tokenizer checkpoints from
+`TSTokenizer/checkpoints/` and writes logs, exact `.cmd` snapshots, and
+predictor checkpoints under `outputs/main_predictor_seeds/`. Use
+`--tokenizer-root`, `--data-root`, `--text-tokenizer-root`, and `--output-root`
+when those files are elsewhere. `--pred-lens 48` runs a single shared horizon;
+`--skip-existing` resumes after runs that completed training and testing.
+
+### Single-Seed Unify Model
+
+The original shell commands below run seed 2024. Use the three-seed runner above
+for the reported main-table protocol.
+
 ```bash
 bash scripts/unify/Cross_large_unify.sh
 # or 
@@ -66,4 +96,7 @@ The reproducible zero-shot and 5%/10% prefix few-shot protocol is documented in
 [`scripts/holdout/README.md`](scripts/holdout/README.md). This protocol keeps the
 standard grouped tokenizers frozen and excludes the target domain only from
 token-predictor training. Use `scripts/holdout/run_lodo.sh` for predictor-level
-LODO and `scripts/holdout/run_fewshot.sh` for 5%/10% target adaptation.
+LODO and `scripts/holdout/run_fewshot.sh` for 5%/10% target adaptation. These
+produce the zero-shot and few-shot columns in Appendix F.2; its full-data
+reference column reuses the main-table results from the three-seed runner above.
+The general adaptive scripts above are separate.

@@ -27,6 +27,7 @@ from torch.optim import lr_scheduler
 
 import os
 import time
+from pathlib import Path
 
 import warnings
 import matplotlib.pyplot as plt
@@ -443,7 +444,12 @@ class Exp_Main(Exp_Basic):
         print('\n################# Adaptive Train #################')
 
         if self.args.load_unify == 1:
-            unify_root = save_root.replace("adaptive", "unify")
+            save_root_path = Path(save_root)
+            unify_root = (
+                save_root_path.with_name("unify")
+                if save_root_path.name == "adaptive"
+                else save_root_path
+            )
             unify_setting = getattr(self.args, 'load_unify_setting', None) or setting
             self.model.load_state_dict(
                 torch.load(os.path.join(unify_root, unify_setting, 'checkpoint.pth'))

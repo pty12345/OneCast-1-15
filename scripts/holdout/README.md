@@ -14,6 +14,9 @@ end-to-end unseen-domain protocol.
 - Few-shot adaptation initializes from the matching zero-shot checkpoint and
   uses only the first 5% or 10% of the target-domain training windows.
 - Validation and test windows are never reduced by the few-shot ratio.
+- The full-data reference column in Appendix F.2 directly reuses the main-table
+  all-domain results. Reproduce it with `scripts/unify/run_predictor_seeds.py`;
+  it is not a separate target-only adaptation run.
 
 ## Prerequisites
 
