@@ -7,6 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--is_training", type=int, default=1)
 parser.add_argument("--save_path", type=str, default=None)
 parser.add_argument("--load_path", type=str, default=None)
+parser.add_argument("--random_seed", type=int, default=2024, help="random seed")
 
 # dataset
 parser.add_argument('--data', type=str, required=False, default='ETTh1', help='dataset type')

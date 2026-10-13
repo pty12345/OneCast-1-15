@@ -6,7 +6,8 @@ end-to-end unseen-domain protocol.
 ## Protocol
 
 - The standard `Cross_large` grouped tokenizers are trained on their usual
-  datasets, including the target domain, and remain frozen in every phase.
+  datasets, including the target domain, and remain frozen in every phase. By
+  default, Appendix F.2 uses the tokenizer checkpoints trained with seed 2024.
 - For each target, the unified token predictor is trained on the other four
   source domains only.
 - Zero-shot evaluation applies that source-domain predictor directly to the
@@ -24,16 +25,19 @@ Train the three standard large-domain tokenizer groups first:
 
 ```bash
 cd TSTokenizer
-bash scripts/Cross_ETTh2_ETTm2_weather.sh
-bash scripts/Cross_Traffic.sh
-bash scripts/Cross_CzeLan.sh
+ONECAST_RANDOM_SEED=2024 bash scripts/Cross_ETTh2_ETTm2_weather.sh
+ONECAST_RANDOM_SEED=2024 bash scripts/Cross_Traffic.sh
+ONECAST_RANDOM_SEED=2024 bash scripts/Cross_CzeLan.sh
 cd ..
 ```
 
 By default, the runner expects their checkpoints under
-`TSTokenizer/checkpoints/`. Use `--tokenizer-path-template` when the checkpoint
-root or naming convention differs. The template may contain `{pred_len}` and
-must use `Cross_large` and `emb128` as the group and vocabulary placeholders.
+`TSTokenizer/checkpoints/seed2024/`. Select a different frozen tokenizer run
+with `--tokenizer-seed`, and set `--tokenizer-root` or
+`ONECAST_TOKENIZER_ROOT` when the checkpoint root differs. Use
+`--tokenizer-path-template` for a different naming convention. The template
+may contain `{pred_len}` and `{seed}`, and must use `Cross_large` and `emb128`
+as the group and vocabulary placeholders.
 
 ## LODO Command
 
@@ -44,6 +48,7 @@ evaluate each predictor directly on its held-out target:
 bash scripts/holdout/run_lodo.sh \
   --pred-lens 48 \
   --seeds 2024 \
+  --tokenizer-seed 2024 \
   --data-root /path/to/dataset \
   --text-tokenizer-root /path/to/GPT2 \
   --gpu 0 \
@@ -60,6 +65,7 @@ bash scripts/holdout/run_fewshot.sh \
   --pred-lens 48 \
   --seeds 2024 \
   --few-shot-ratios 0.05 0.10 \
+  --tokenizer-seed 2024 \
   --data-root /path/to/dataset \
   --text-tokenizer-root /path/to/GPT2 \
   --gpu 0 \
@@ -67,8 +73,9 @@ bash scripts/holdout/run_fewshot.sh \
 ```
 
 Add `--dry-run --targets ETTh2` to either command to inspect its exact commands
-without starting training. To repeat a run with another seed, change the value
-passed to `--seeds`.
+without starting training or writing logs. To repeat a predictor run with
+another seed, change `--seeds`; change `--tokenizer-seed` only when selecting a
+different pre-trained grouped-tokenizer run.
 
 Use `--multi-gpu` when multiple GPUs are exposed through `--gpu`, for example
 `--gpu 0,1 --multi-gpu`. The Python executable can be selected with

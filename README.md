@@ -15,13 +15,15 @@ export PYTHON_BIN=/path/to/python
 export GPU_IDS=0
 export ONECAST_DATA_ROOT=/path/to/forecasting-datasets
 export ONECAST_GPT2_ROOT=/path/to/GPT2
+export ONECAST_TOKENIZER_ROOT=/path/to/tokenizer-checkpoints
 # Optional when using the Qwen backbone:
 export ONECAST_QWEN_ROOT=/path/to/Qwen2.5-0.5B-Instruct
 ```
 
 `PYTHON_BIN` defaults to `python3`, `GPU_IDS` defaults to `0`, and
 `ONECAST_DATA_ROOT` defaults to `./dataset` under the repository root.
-`ONECAST_GPT2_ROOT` defaults to `./pretrained/GPT2`.
+`ONECAST_GPT2_ROOT` defaults to `./pretrained/GPT2`, and
+`ONECAST_TOKENIZER_ROOT` defaults to `./TSTokenizer/checkpoints`.
 
 ### Prepare datasets
 
@@ -46,16 +48,24 @@ bash TSTokenizer/scripts/Cross_Wike2000.sh
 bash TSTokenizer/scripts/Cross_FRED_Covid_NYSE.sh
 ```
 
-The tokenizer scripts use seed 2024. Train each tokenizer group once for each
-forecast horizon; the three main-table predictor runs below reuse those same
-group checkpoints. Each tokenizer checkpoint directory must contain `model.pkl`
-and `weight.pkl`.
+The individual tokenizer scripts default to seed 2024 and save under
+`TSTokenizer/checkpoints/seed2024/`. Set `ONECAST_RANDOM_SEED` to run another
+seed. Each tokenizer checkpoint directory contains `model.pkl` and
+`weight.pkl`.
 
-### Reproduce Main-Table Predictor Runs
+### Reproduce Main-Table Runs
 
-Run the large and small cross-domain predictors once under each of seeds
-2023, 2024, and 2025. The runner keeps the pretrained tokenizers fixed and
-gives each predictor run a distinct model ID, log, and checkpoint path:
+For each reported seed, first train all grouped tokenizers with that seed:
+
+```bash
+python3 scripts/unify/run_tokenizer_seeds.py --dry-run
+python3 scripts/unify/run_tokenizer_seeds.py \
+  --setups large small \
+  --seeds 2023 2024 2025 \
+  --gpu 0
+```
+
+Then train each predictor with the tokenizer produced by the same seed:
 
 ```bash
 python3 scripts/unify/run_predictor_seeds.py --dry-run
@@ -65,12 +75,17 @@ python3 scripts/unify/run_predictor_seeds.py \
   --gpu 0
 ```
 
-By default, it reads grouped tokenizer checkpoints from
-`TSTokenizer/checkpoints/` and writes logs, exact `.cmd` snapshots, and
-predictor checkpoints under `outputs/main_predictor_seeds/`. Use
-`--tokenizer-root`, `--data-root`, `--text-tokenizer-root`, and `--output-root`
-when those files are elsewhere. `--pred-lens 48` runs a single shared horizon;
-`--skip-existing` resumes after runs that completed training and testing.
+The predictor commands intentionally use `--itr 1`: each command is one
+independent run, and the runner enumerates seeds 2023, 2024, and 2025.
+
+Both runners use `TSTokenizer/checkpoints/seed<seed>/` by default. Tokenizer
+logs are stored under `TSTokenizer/logs/Tokenizer/seed<seed>/`; predictor logs,
+exact `.cmd` snapshots, and checkpoints are stored under
+`outputs/main_predictor_seeds/`. Both runners accept `--tokenizer-root` and
+`--data-root`; the tokenizer runner also accepts `--log-root`, while the
+predictor runner accepts `--text-tokenizer-root` and `--output-root`.
+`--pred-lens 48` runs one horizon, and `--skip-existing` resumes completed
+runs.
 
 ### Single-Seed Unify Model
 

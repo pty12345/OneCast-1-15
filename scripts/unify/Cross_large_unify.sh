@@ -6,6 +6,8 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 GPU_IDS="${GPU_IDS:-${CUDA_VISIBLE_DEVICES:-0}}"
 root_path_name="${ONECAST_DATA_ROOT:-${ROOT_DIR}/dataset}"
+text_tokenizer_root="${ONECAST_GPT2_ROOT:-${ROOT_DIR}/pretrained/GPT2}"
+tokenizer_root="${ONECAST_TOKENIZER_ROOT:-${ROOT_DIR}/TSTokenizer/checkpoints}"
 
 export CUDA_VISIBLE_DEVICES="${GPU_IDS}"
 cd "${ROOT_DIR}"
@@ -45,10 +47,13 @@ elect_rate=0
 
 for pred_len in 24 48 96 192 #  720 # 192      # 336 720
 do
+    vqvae_path="${tokenizer_root}/seed${random_seed}/${model_id_name}_${token_len}_sl${seq_len}_pl${pred_len}_dm${d_model}_dr0.2_emb${n_embed}_wl${wave_length}_bl${block_num}_${VQ_type}_epoch${VQ_epoch}"
     "${PYTHON_BIN}" -u run_longExp.py \
     --random_seed $random_seed \
     --use_multi_gpu \
     --cross_dataset "ETTh2,ETTm2,weather,traffic,CzeLan" \
+    --vqvae_path "$vqvae_path" \
+    --text_tokenizer_root "$text_tokenizer_root" \
     --mask_schedule $mask_schedule \
     --is_training 1 \
     --is_unify \

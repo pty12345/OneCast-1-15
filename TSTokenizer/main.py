@@ -42,7 +42,7 @@ dim_table = {
 }
 
 def main():
-    seed_everything(seed=2024)
+    seed_everything(seed=args.random_seed)
 
     # train_dataset = Dataset(device=args.device, mode='train', args=args)
     # train_loader = Data.DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=True)

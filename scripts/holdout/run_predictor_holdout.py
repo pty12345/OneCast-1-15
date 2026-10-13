@@ -41,9 +41,23 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument(
+        "--tokenizer-root",
+        type=Path,
+        default=Path(
+            os.environ.get("ONECAST_TOKENIZER_ROOT", ROOT / "TSTokenizer" / "checkpoints")
+        ),
+        help="root containing seed<value> directories for grouped tokenizers",
+    )
+    parser.add_argument(
+        "--tokenizer-seed",
+        type=int,
+        default=2024,
+        help="seed of the frozen grouped tokenizers used by the holdout runs",
+    )
+    parser.add_argument(
         "--tokenizer-path-template",
         default=None,
-        help="grouped-tokenizer path template; may contain {pred_len}",
+        help="grouped-tokenizer path template; may contain {pred_len} and {seed}",
     )
     parser.add_argument("--tokenizer-epochs", type=int, default=25)
     parser.add_argument("--predictor-epochs", type=int, default=20)
@@ -65,11 +79,15 @@ def ratio_tag(ratio: float) -> str:
 
 def tokenizer_path(pred_len: int, args: argparse.Namespace) -> Path:
     if args.tokenizer_path_template:
-        return Path(args.tokenizer_path_template.format(pred_len=pred_len)).expanduser().resolve()
+        return Path(
+            args.tokenizer_path_template.format(
+                pred_len=pred_len,
+                seed=args.tokenizer_seed,
+            )
+        ).expanduser().resolve()
     return (
-        ROOT
-        / "TSTokenizer"
-        / "checkpoints"
+        args.tokenizer_root
+        / f"seed{args.tokenizer_seed}"
         / (
             f"Cross_large_16_sl96_pl{pred_len}_dm64_dr0.2_emb128_"
             f"wl8_bl3_W_SimVQ_decompose_epoch{args.tokenizer_epochs}"
@@ -301,6 +319,10 @@ def run_command(
     args: argparse.Namespace,
     skip_path: Path | None = None,
 ) -> None:
+    if args.dry_run:
+        print("DRY RUN:", shlex.join(cmd))
+        return
+
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.with_suffix(log_path.suffix + ".cmd").write_text(
         shlex.join(cmd) + "\n", encoding="utf-8"
@@ -311,9 +333,6 @@ def run_command(
         return
     if args.skip_existing and skip_path is None and log_path.exists():
         print(f"Skipping existing log: {log_path}")
-        return
-    if args.dry_run:
-        print("DRY RUN:", shlex.join(cmd))
         return
 
     env = os.environ.copy()
@@ -432,6 +451,7 @@ def main() -> None:
     args = parse_args()
     args.data_root = args.data_root.expanduser().resolve()
     args.text_tokenizer_root = args.text_tokenizer_root.expanduser().resolve()
+    args.tokenizer_root = args.tokenizer_root.expanduser().resolve()
     args.output_root = args.output_root.expanduser().resolve()
     validate_inputs(args)
 

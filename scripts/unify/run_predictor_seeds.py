@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproduce main-table predictor runs with one shared set of tokenizers."""
+"""Train main-table predictors with the matching tokenizer from each seed."""
 
 from __future__ import annotations
 
@@ -74,8 +74,12 @@ def parse_args() -> argparse.Namespace:
         default=Path(os.environ.get("ONECAST_GPT2_ROOT", ROOT / "pretrained" / "GPT2")),
     )
     parser.add_argument(
-        "--tokenizer-root", type=Path, default=ROOT / "TSTokenizer" / "checkpoints",
-        help="directory containing the five pretrained tokenizer groups",
+        "--tokenizer-root",
+        type=Path,
+        default=Path(
+            os.environ.get("ONECAST_TOKENIZER_ROOT", ROOT / "TSTokenizer" / "checkpoints")
+        ),
+        help="root containing seed<value> directories for the tokenizer runs",
     )
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument(
@@ -96,19 +100,23 @@ def pred_lens_for(setup: str, args: argparse.Namespace) -> tuple[int, ...]:
     return chosen
 
 
-def tokenizer_template(setup: str, pred_len: int, args: argparse.Namespace) -> Path:
+def tokenizer_template(
+    setup: str, pred_len: int, seed: int, args: argparse.Namespace
+) -> Path:
     cfg = SETUPS[setup]
     name = (
         f"{cfg['name']}_{cfg['token_len']}_sl{cfg['seq_len']}_pl{pred_len}"
         f"_dm{cfg['d_model']}_dr0.2_emb{cfg['n_embed']}"
         f"_wl{cfg['wave_length']}_bl3_{VQ_TYPE}_epoch{TOKENIZER_EPOCHS}"
     )
-    return args.tokenizer_root / name
+    return args.tokenizer_root / f"seed{seed}" / name
 
 
-def tokenizer_artifacts(setup: str, pred_len: int, args: argparse.Namespace) -> list[Path]:
+def tokenizer_artifacts(
+    setup: str, pred_len: int, seed: int, args: argparse.Namespace
+) -> list[Path]:
     cfg = SETUPS[setup]
-    template = str(tokenizer_template(setup, pred_len, args))
+    template = str(tokenizer_template(setup, pred_len, seed, args))
     artifacts = []
     for group, size in cfg["groups"]:
         group_dir = Path(
@@ -143,7 +151,7 @@ def train_command(
         "--random_seed", str(seed),
         "--use_multi_gpu",
         "--cross_dataset", cfg["datasets"],
-        "--vqvae_path", str(tokenizer_template(setup, pred_len, args)),
+        "--vqvae_path", str(tokenizer_template(setup, pred_len, seed, args)),
         "--checkpoints", str(args.output_root / "checkpoints"),
         "--text_tokenizer_root", str(args.text_tokenizer_root),
         "--mask_schedule", "cosine",
@@ -200,9 +208,10 @@ def validate_inputs(args: argparse.Namespace) -> None:
             raise FileNotFoundError(f"Missing {label}: {path}")
     missing = [
         path
+        for seed in args.seeds
         for setup in args.setups
         for pred_len in pred_lens_for(setup, args)
-        for path in tokenizer_artifacts(setup, pred_len, args)
+        for path in tokenizer_artifacts(setup, pred_len, seed, args)
         if not path.is_file()
     ]
     if missing:
