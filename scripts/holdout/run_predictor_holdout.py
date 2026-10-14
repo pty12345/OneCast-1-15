@@ -327,14 +327,21 @@ def run_command(
     log_path.with_suffix(log_path.suffix + ".cmd").write_text(
         shlex.join(cmd) + "\n", encoding="utf-8"
     )
+    done_path = log_path.with_suffix(log_path.suffix + ".done")
 
-    if args.skip_existing and skip_path is not None and skip_path.exists():
+    if (
+        args.skip_existing
+        and skip_path is not None
+        and skip_path.exists()
+        and done_path.exists()
+    ):
         print(f"Skipping existing artifact: {skip_path}")
         return
-    if args.skip_existing and skip_path is None and log_path.exists():
-        print(f"Skipping existing log: {log_path}")
+    if args.skip_existing and skip_path is None and done_path.exists():
+        print(f"Skipping completed log: {log_path}")
         return
 
+    done_path.unlink(missing_ok=True)
     env = os.environ.copy()
     env["CUDA_VISIBLE_DEVICES"] = args.gpu
     env["PYTHONUNBUFFERED"] = "1"
@@ -360,6 +367,7 @@ def run_command(
         return_code = process.wait()
     if return_code != 0:
         raise subprocess.CalledProcessError(return_code, cmd)
+    done_path.write_text("training or evaluation completed\n", encoding="utf-8")
 
 
 def validate_inputs(args: argparse.Namespace) -> None:

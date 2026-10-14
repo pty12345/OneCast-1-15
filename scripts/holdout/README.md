@@ -91,5 +91,8 @@ python3 scripts/holdout/summarize_predictor_holdout.py \
   --few-shot-ratios 0.05 0.10
 ```
 
-Logs, exact `.cmd` snapshots, checkpoints, and the summary CSV are stored under
-`outputs/predictor_holdout/` by default. Use `--output-root` to change this.
+Logs, exact `.cmd` snapshots, `.done` completion markers, checkpoints, and the
+summary CSV are stored under `outputs/predictor_holdout/` by default. With
+`--skip-existing`, a run is skipped only when its completion marker and, for a
+training phase, its checkpoint are both present. Use `--output-root` to change
+this.

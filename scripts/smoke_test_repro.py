@@ -604,6 +604,28 @@ def check_orchestration() -> None:
             len(list((holdout_output / "checkpoints").rglob("checkpoint.pth"))) == 3,
             "Missing LODO or few-shot checkpoints",
         )
+        require(
+            len(list(holdout_output.rglob("*.done"))) == 4,
+            "Missing holdout completion markers",
+        )
+
+        zero_shot_done = (
+            holdout_output
+            / "logs"
+            / "seed2023"
+            / "zs_test_leave_ETTh2_h24.log.done"
+        )
+        zero_shot_done.unlink()
+        calls_before_incomplete_resume = len(read_calls(call_log))
+        run(lodo_command + ["--skip-existing"], env=wrapper_env)
+        require(
+            len(read_calls(call_log)) == calls_before_incomplete_resume + 1,
+            "A stale zero-shot log without a .done marker was incorrectly skipped",
+        )
+        require(
+            zero_shot_done.is_file(),
+            "Rerun zero-shot evaluation did not restore its completion marker",
+        )
 
         calls_before_resume = len(read_calls(call_log))
         run(lodo_command + ["--skip-existing"], env=wrapper_env)
