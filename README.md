@@ -78,6 +78,23 @@ python3 scripts/unify/run_predictor_seeds.py \
 The predictor commands intentionally use `--itr 1`: each command is one
 independent run, and the runner enumerates seeds 2023, 2024, and 2025.
 
+Before launching the full experiments, run the dependency-light smoke test:
+
+```bash
+python3 scripts/smoke_test_repro.py
+```
+
+It checks Python and shell syntax, the complete dry-run command matrices,
+generated CLI option names, and seed/checkpoint pairing. A temporary fake
+training process then exercises the tokenizer and predictor runners, the LODO
+and few-shot wrapper scripts, artifact naming, resume paths, and summary CSV
+plumbing. The default test does not import or construct the real neural
+networks, load datasets or checkpoints, run forward/backward passes, verify
+checkpoint deserialization, or validate numerical results. In a prepared
+training environment, add `--check-training-imports` to verify that the real
+tokenizer and predictor entry points can import successfully, then run a small
+real-data job for end-to-end validation.
+
 Both runners use `TSTokenizer/checkpoints/seed<seed>/` by default. Tokenizer
 logs are stored under `TSTokenizer/logs/Tokenizer/seed<seed>/`; predictor logs,
 exact `.cmd` snapshots, and checkpoints are stored under
